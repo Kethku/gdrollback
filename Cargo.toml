@@ -1,0 +1,21 @@
+[package]
+name = "gdrollback"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["lib", "cdylib"]
+
+[dependencies]
+udp_ext = { path = "./udp_ext" }
+anyhow = "1.0"
+bincode = "1.3.3"
+dirs = "5.0"
+godot = { git = "https://github.com/godot-rust/gdext", branch = "master", features = ["serde"] }
+indoc = "2.0"
+lazy_static = "1.4.0"
+parking_lot = "0.12.1"
+rusqlite = { version = "0.30", features = ["bundled"] }
+serde = { version = "1.0", features = ["derive"] }
+uuid = { version = "0.8", features = ["serde", "v4"] }
+itertools = "0.12.1"
