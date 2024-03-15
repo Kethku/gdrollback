@@ -1,12 +1,8 @@
 use anyhow::Result;
-use godot::prelude::*;
+use godot::{engine::utilities::bytes_to_var, prelude::*};
 
 use crate::{
-    logging::LogReader,
-    message::Message,
-    play_stage::{Input, PlayStage},
-    sync_stage::SyncStage,
-    Context,
+    logging::LogReader, message::Message, play_stage::PlayStage, sync_stage::SyncStage, Context,
 };
 
 pub struct ReplayStage {
@@ -41,14 +37,17 @@ impl ReplayStage {
         Ok(None)
     }
 
-    pub fn input(&self, id: String, cx: &Context) -> Input {
+    pub fn input(&self, id: String, cx: &Context) -> Variant {
         self.play_stage.input(id, cx)
     }
 
-    pub fn local_input(&self, cx: &Context) -> Input {
-        self.log_reader
+    pub fn local_input(&self, cx: &Context) -> Variant {
+        let input_bytes = self
+            .log_reader
             .sent_input_for_tick(cx.latest_tick())
-            .expect("Could not find sent input for tick")
+            .expect("Could not find sent input for tick");
+
+        bytes_to_var(PackedByteArray::from(&input_bytes[..]))
     }
 
     pub fn advantage(&self) -> f64 {

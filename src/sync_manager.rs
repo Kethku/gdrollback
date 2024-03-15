@@ -3,13 +3,8 @@ use itertools::Itertools;
 use udp_ext::persistent::PersistentEvent;
 
 use crate::{
-    lobby_stage::LobbyStage,
-    logging::LogReader,
-    message::Message,
-    play_stage::{Input, PlayStage},
-    replay_stage::ReplayStage,
-    sync_stage::SyncStage,
-    Context,
+    lobby_stage::LobbyStage, logging::LogReader, message::Message, play_stage::PlayStage,
+    replay_stage::ReplayStage, sync_stage::SyncStage, Context,
 };
 
 #[derive(GodotClass)]
@@ -163,7 +158,7 @@ impl RollbackSyncManager {
     }
 
     #[func]
-    pub fn input(&mut self, id: String) -> Input {
+    pub fn input(&mut self, id: String) -> Variant {
         self.stage.input(id, &self.context)
     }
 

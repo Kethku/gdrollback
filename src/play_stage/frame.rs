@@ -7,8 +7,6 @@ use godot::prelude::*;
 use parking_lot::RwLock;
 use uuid::Uuid;
 
-use super::input::Input;
-
 #[derive(Clone)]
 pub struct SpawnRecord {
     pub name: String,
@@ -19,7 +17,7 @@ pub struct SpawnRecord {
 
 pub struct Frame {
     tick: u64,
-    inputs: RwLock<HashMap<Uuid, Input>>,
+    inputs: RwLock<HashMap<Uuid, Option<Variant>>>,
     updated: AtomicBool,
     complete: AtomicBool,
     node_states: RwLock<HashMap<String, Variant>>,
@@ -45,7 +43,7 @@ impl Frame {
     pub fn initial_frame(peers: impl Iterator<Item = Uuid>) -> Self {
         let frame = Self::new(0);
         for peer in peers {
-            frame.inputs.write().insert(peer, Input::default());
+            frame.inputs.write().insert(peer, None);
         }
         frame
     }
@@ -54,12 +52,12 @@ impl Frame {
         self.tick
     }
 
-    pub fn input(&self, id: Uuid) -> Option<Input> {
-        self.inputs.read().get(&id).cloned()
+    pub fn input(&self, id: Uuid) -> Option<Variant> {
+        self.inputs.read().get(&id).cloned().flatten()
     }
 
-    pub fn set_input(&self, id: Uuid, input: Input, peers: Vec<Uuid>) {
-        self.inputs.write().insert(id, input);
+    pub fn set_input(&self, id: Uuid, input: Variant, peers: Vec<Uuid>) {
+        self.inputs.write().insert(id, Some(input));
         self.updated.store(true, Ordering::Relaxed);
 
         if self.inputs.read().len() == peers.len() {

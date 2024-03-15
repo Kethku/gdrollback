@@ -5,7 +5,7 @@ use indoc::indoc;
 use rusqlite::{named_params, params, Connection};
 use uuid::Uuid;
 
-use crate::{message::SentInput, play_stage::Input};
+use crate::message::SentInput;
 
 use super::{FrameState, LogEntry, RunInfo};
 
@@ -213,21 +213,19 @@ impl LogReader {
         inputs.collect()
     }
 
-    pub fn sent_input_for_tick(&self, tick: u64) -> Result<Input> {
+    pub fn sent_input_for_tick(&self, tick: u64) -> Result<Vec<u8>> {
         let mut statement = self.connection.prepare_cached(indoc! {"
             SELECT input
             FROM sent_inputs
             WHERE frame = :tick
         "})?;
 
-        let input_binary = statement.query_row(
+        Ok(statement.query_row(
             named_params! {
                 ":tick": tick,
             },
             |row| row.get::<_, Vec<u8>>(0),
-        )?;
-
-        Ok(bincode::deserialize(&input_binary)?)
+        )?)
     }
 
     pub fn log_entries(&self) -> Result<Vec<LogEntry>> {

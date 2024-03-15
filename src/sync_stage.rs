@@ -4,10 +4,7 @@ use udp_ext::persistent::PersistentSocketSender;
 use uuid::Uuid;
 
 use crate::{
-    lobby_stage::LobbyStage,
-    message::Message,
-    play_stage::{Input, PlayStage},
-    replay_stage::ReplayStage,
+    lobby_stage::LobbyStage, message::Message, play_stage::PlayStage, replay_stage::ReplayStage,
     Context,
 };
 
@@ -49,9 +46,9 @@ impl SyncStage {
         }
     }
 
-    pub fn input(&self, id: String, cx: &Context) -> Input {
+    pub fn input(&self, id: String, cx: &Context) -> Variant {
         match self {
-            SyncStage::Lobby(_) => Input::default(),
+            SyncStage::Lobby(_) => panic!("Can't retrieve input in lobby stage"),
             SyncStage::Play(play_stage) => play_stage.input(id, cx),
             SyncStage::Replay(replay_stage) => replay_stage.input(id, cx),
         }

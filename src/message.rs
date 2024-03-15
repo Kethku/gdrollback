@@ -3,13 +3,11 @@ use std::hash::{Hash, Hasher};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::play_stage::Input;
-
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct SentInput {
     pub frame: u64,
     pub sender: Uuid,
-    pub input: Input,
+    pub input: Vec<u8>,
 }
 
 impl Hash for SentInput {

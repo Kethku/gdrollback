@@ -1,5 +1,4 @@
 mod frame;
-mod input;
 mod spawn_manager;
 
 use std::{
@@ -9,7 +8,10 @@ use std::{
 };
 
 use anyhow::Result;
-use godot::prelude::*;
+use godot::{
+    engine::utilities::{bytes_to_var, var_to_bytes},
+    prelude::*,
+};
 use uuid::Uuid;
 
 use crate::{
@@ -20,7 +22,6 @@ use crate::{
     sync_stage::SyncStage,
 };
 use frame::{Frame, SpawnRecord};
-pub use input::Input;
 
 use self::spawn_manager::SpawnManager;
 
@@ -63,7 +64,7 @@ impl PlayStage {
         this
     }
 
-    pub fn input(&self, id: String, cx: &Context) -> Input {
+    pub fn input(&self, id: String, cx: &Context) -> Variant {
         let id = Uuid::parse_str(&id).unwrap();
         for tick in (cx.latest_tick().saturating_sub(MAX_REWIND)..=cx.current_tick()).rev() {
             if let Some(frame) = self.frames.get(&tick) {
@@ -130,9 +131,12 @@ impl PlayStage {
                     .entry(*tick)
                     .or_insert_with(|| Arc::new(Frame::new(*tick)));
                 self.latest_frame_delivered.insert(*remote_id, *tick);
-                if Some(input) != frame.input(*remote_id).as_ref() {
-                    frame.set_input(*remote_id, input.clone(), cx.peers());
-                }
+                frame.set_input(
+                    *remote_id,
+                    bytes_to_var(PackedByteArray::from(&input[..])),
+                    cx.peers(),
+                );
+
                 let latest_frame_received =
                     self.latest_frame_received.entry(*remote_id).or_insert(0);
                 *latest_frame_received = (*latest_frame_received).max(*tick);
@@ -242,7 +246,7 @@ impl PlayStage {
                 let sent_input = SentInput {
                     frame: latest_tick,
                     sender: cx.local_id(),
-                    input: new_input.clone(),
+                    input: var_to_bytes(new_input.clone()).to_vec(),
                 };
 
                 cx.logger()
@@ -337,7 +341,7 @@ pub trait PlayStageOwner {
     // spawns/despawns whatever nodes necessary to return to that frame's state
     fn load_frame(&mut self, tick: u64);
     // Fetches the local input
-    fn fetch_local_input(&mut self) -> Input;
+    fn fetch_local_input(&mut self) -> Variant;
     // Sends a serializable message to a specific peer
     fn send(&mut self, peer: Uuid, message: Message);
     // Returns the list of peers that are currently connected
@@ -391,7 +395,7 @@ impl PlayStageOwner for Gd<RollbackSyncManager> {
         spawn_manager.load_frame(self, frame.as_ref());
     }
 
-    fn fetch_local_input(&mut self) -> Input {
+    fn fetch_local_input(&mut self) -> Variant {
         {
             let sync_manager = self.bind();
             if let SyncStage::Replay(replay_stage) = &sync_manager.stage {
@@ -400,8 +404,7 @@ impl PlayStageOwner for Gd<RollbackSyncManager> {
         }
 
         let mut input_manager = self.get_node("/root/InputManager".into()).unwrap();
-        let input_variant = input_manager.call("networked_input".into(), &[]);
-        input_variant.to::<Input>()
+        input_manager.call("networked_input".into(), &[])
     }
 
     fn send(&mut self, peer: Uuid, message: Message) {

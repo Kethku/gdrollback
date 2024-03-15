@@ -114,6 +114,21 @@ impl LogWriter {
         Ok(())
     }
 
+    pub fn received_input_manual(
+        &self,
+        received_frame: u64,
+        receiver: Uuid,
+        sent_input: SentInput,
+    ) -> Result<()> {
+        self.log_sender
+            .send(LogEntry::ReceivedInput(ReceivedInput {
+                received_frame,
+                receiver,
+                sent_input,
+            }))?;
+        Ok(())
+    }
+
     pub fn dropped_frame(
         &self,
         frame: u64,
