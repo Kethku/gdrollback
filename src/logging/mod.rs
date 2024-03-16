@@ -14,7 +14,7 @@ pub use log_writer::*;
 
 pub fn log_file_directory() -> Result<PathBuf> {
     let project_settings = ProjectSettings::singleton();
-    let directory_string: String = project_settings.globalize_path("logs".into()).into();
+    let directory_string: String = project_settings.globalize_path("user://logs".into()).into();
     let directory_path = PathBuf::from(directory_string);
     std::fs::create_dir_all(&directory_path)?;
     Ok(directory_path.to_owned())

@@ -30,13 +30,13 @@ impl LogWriter {
         let (run_sender, run_receiver) = channel::<(Uuid, Uuid)>();
         let (log_sender, log_receiver) = channel::<LogEntry>();
         let enabled = Arc::new(AtomicBool::new(true));
+        let directory = log_file_directory().unwrap();
 
         thread::spawn({
             let enabled = enabled.clone();
             move || {
                 let (run, id) = run_receiver.recv().expect("Failed to receive run id");
 
-                let directory = log_file_directory().unwrap();
                 let file_path = directory.join(format!("{run}_{}.db", id.to_string()));
 
                 let mut connection = Connection::open(file_path).unwrap();
