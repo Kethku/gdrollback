@@ -7,8 +7,10 @@ mod replay_stage;
 pub mod sync_manager;
 mod sync_stage;
 
+use std::path::PathBuf;
+
 use godot::{
-    engine::{EditorPlugin, IEditorPlugin, ResourceSaver},
+    engine::{EditorPlugin, IEditorPlugin, ProjectSettings, ResourceSaver},
     prelude::*,
 };
 
