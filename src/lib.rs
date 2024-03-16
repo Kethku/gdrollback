@@ -34,6 +34,14 @@ impl IEditorPlugin for GdRollbackEditorPlugin {
     }
 
     fn enter_tree(&mut self) {
+        let project_settings = ProjectSettings::singleton();
+        let directory_string: String = project_settings
+            .globalize_path("res://autoloads".into())
+            .into();
+        let directory_path = PathBuf::from(directory_string);
+
+        std::fs::create_dir_all(directory_path).expect("Couldn't create autoloads directory");
+
         let autoloads: Vec<(GString, GString, Gd<Node>)> = vec![(
             "SyncManager".into(),
             "res://autoloads/sync_manager.tscn".into(),
