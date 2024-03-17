@@ -101,7 +101,7 @@ impl LobbyStage {
 
                 let start_adjustment = (cx.average_response_time(id).unwrap() / 2).as_millis() / 16;
                 godot_print!("Start adjustment: {}", start_adjustment);
-                self.scheduled_start = Some(SCHEDULE_TICKS - start_adjustment as u32);
+                self.scheduled_start = Some(SCHEDULE_TICKS.saturating_sub(start_adjustment as u32));
                 cx.set_run(run).expect("Could not set run on logger");
                 godot_print!("Scheduled start");
                 node.emit_signal("start_scheduled".into(), &[]);
