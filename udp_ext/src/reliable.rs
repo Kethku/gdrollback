@@ -1,7 +1,7 @@
 use std::collections::*;
 use std::io::{Error, ErrorKind};
 use std::net::UdpSocket;
-use std::net::{SocketAddr, ToSocketAddrs};
+use std::net::{SocketAddr, ToSocketAddrs, Ipv4Addr};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
@@ -79,7 +79,7 @@ impl ReliableSocket {
     pub const MAX_RELIABLE_PACKET_SIZE: usize = 500;
 
     pub fn bind(port: u16) -> Result<ReliableSocket> {
-        let socket = UdpSocket::bind(("0.0.0.0", port))?;
+        let socket = UdpSocket::bind((Ipv4Addr::UNSPECIFIED, port))?;
         socket.set_nonblocking(true)?;
 
         Ok(ReliableSocket {

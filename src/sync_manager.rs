@@ -91,7 +91,6 @@ impl RollbackSyncManager {
             );
             this.stage = stage;
         }
-        godot_print!("Started replay from log file");
         this.emit_signal("started".into(), &[]);
     }
 
