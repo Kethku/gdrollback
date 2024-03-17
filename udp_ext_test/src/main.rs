@@ -1,3 +1,4 @@
+use std::net::ToSocketAddrs;
 use udp_ext::{messages::OutgoingMessage, persistent::PersistentSocket};
 
 fn main() {
@@ -7,12 +8,15 @@ fn main() {
     let mut socket = PersistentSocket::<usize>::bind(port).expect("Could not bind port");
 
     if !is_host {
-        let host_address = "home.kaylees.dev:11337";
+        let host_address = "home.kaylees.dev:11337"
+            .to_socket_addrs()
+            .unwrap()
+            .next()
+            .unwrap();
+        socket.connect(0, host_address);
         let mut message = OutgoingMessage::new();
         message.write_string("Did it work?");
-        socket
-            .send_to_address(host_address, message)
-            .expect("Could not send message");
+        socket.send_to(0, message).expect("Could not send message");
     }
 
     loop {
