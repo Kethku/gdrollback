@@ -193,15 +193,15 @@ where
     }
 
     fn record_acknowledgement(&mut self, packet_id: PacketId, remote_address: SocketAddr) {
-        let sent_time = self
+        if let Some(sent_time) = self
             .sent_times
-            .remove(&(packet_id, remote_address))
-            .unwrap();
-        if let Some(id) = self.id_by_address.get(&remote_address) {
-            let ping_times = self.ping_times.get_mut(&id).unwrap();
-            ping_times.push_front(sent_time.elapsed());
-            if ping_times.len() > PersistentSocket::<ID>::PING_ROLLING_AVERAGE_SIZE {
-                ping_times.pop_back();
+            .remove(&(packet_id, remote_address)) {
+            if let Some(id) = self.id_by_address.get(&remote_address) {
+                let ping_times = self.ping_times.get_mut(&id).unwrap();
+                ping_times.push_front(sent_time.elapsed());
+                if ping_times.len() > PersistentSocket::<ID>::PING_ROLLING_AVERAGE_SIZE {
+                    ping_times.pop_back();
+                }
             }
         }
     }
