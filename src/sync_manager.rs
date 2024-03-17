@@ -47,6 +47,7 @@ impl INode for RollbackSyncManager {
         });
 
         for (message, address) in messages {
+            dbg!(&message, &address);
             self.stage
                 .handle_message(&mut self.node.to_gd(), message, address, &mut self.context)
                 .expect("Couldn't handle message");

@@ -90,7 +90,9 @@ where
         message: impl IntoOutgoingMessage,
     ) -> Result<FrameId> {
         let remote_address = remote_address.to_socket_addrs()?.next().unwrap();
+        dbg!(&remote_address);
         let message = message.into();
+        dbg!(&message);
         Ok(self.frame.send_to(message, remote_address)?)
     }
 
