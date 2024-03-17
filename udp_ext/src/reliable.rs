@@ -1,6 +1,6 @@
 use std::collections::*;
 use std::io::{Error, ErrorKind};
-use std::net::UdpSocket;
+use std::net::{Ipv4Addr, UdpSocket};
 use std::net::{SocketAddr, ToSocketAddrs};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
@@ -79,8 +79,7 @@ impl ReliableSocket {
     pub const MAX_RELIABLE_PACKET_SIZE: usize = 500;
 
     pub fn bind(port: u16) -> Result<ReliableSocket> {
-        dbg!(port);
-        let socket = UdpSocket::bind(("0.0.0.0", port))?;
+        let socket = UdpSocket::bind((Ipv4Addr::UNSPECIFIED, port))?;
         socket.set_nonblocking(true)?;
 
         Ok(ReliableSocket {
@@ -141,9 +140,8 @@ impl ReliableSocket {
         let mut results = self.resend_unacked_messages()?;
 
         let mut buf = [0u8; ReliableSocket::MAX_RELIABLE_PACKET_SIZE];
-        while let Ok((byte_count, remote_address)) = self.socket.recv_from(&mut buf) {
-            dbg!(&remote_address);
 
+        while let Ok((byte_count, remote_address)) = self.socket.recv_from(&mut buf) {
             let mut incoming_message = IncomingMessage::new(buf[..byte_count].to_vec());
             let is_data = incoming_message
                 .read_bool()

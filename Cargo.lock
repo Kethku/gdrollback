@@ -546,8 +546,16 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "bincode",
+ "paste",
  "serde",
  "uuid 0.8.2",
+]
+
+[[package]]
+name = "udp_ext_test"
+version = "0.1.0"
+dependencies = [
+ "udp_ext",
 ]
 
 [[package]]

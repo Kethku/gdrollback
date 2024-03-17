@@ -1,3 +1,4 @@
+workspace = { members = ["udp_ext_test"] }
 [package]
 name = "gdrollback"
 version = "0.1.0"
