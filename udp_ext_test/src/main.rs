@@ -1,17 +1,17 @@
-use udp_ext::{frame::FrameSocket, messages::OutgoingMessage};
+use udp_ext::{messages::OutgoingMessage, persistent::PersistentSocket};
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     let is_host = args.get(1) == Some(&"host".to_owned());
     let port = if is_host { 11337 } else { 0 };
-    let mut socket = FrameSocket::bind(port).expect("Could not bind port");
+    let mut socket = PersistentSocket::<usize>::bind(port).expect("Could not bind port");
 
     if !is_host {
         let host_address = "home.kaylees.dev:11337";
         let mut message = OutgoingMessage::new();
         message.write_string("Did it work?");
         socket
-            .send_to(message, host_address)
+            .send_to_address(host_address, message)
             .expect("Could not send message");
     }
 
