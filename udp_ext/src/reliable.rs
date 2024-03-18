@@ -1,11 +1,14 @@
 use std::collections::*;
 use std::io::{Error, ErrorKind};
 use std::net::UdpSocket;
-use std::net::{SocketAddr, ToSocketAddrs, Ipv4Addr};
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::net::{Ipv4Addr, SocketAddr, ToSocketAddrs};
+use std::sync::mpsc::{channel, Receiver};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, Result};
+
+use crate::util::DropTracker;
 
 use super::messages::*;
 
@@ -69,9 +72,12 @@ impl UnackedMessage {
 }
 
 pub struct ReliableSocket {
-    socket: UdpSocket,
-    packet_id_counter: AtomicUsize,
-    unacked_messages: HashMap<PacketId, (UnackedMessage, Instant)>,
+    socket: Arc<UdpSocket>,
+    _drop_tracker: DropTracker,
+
+    incoming_messages: Receiver<(IncomingMessage, SocketAddr)>,
+    packet_id_counter: usize,
+    unacked_messages: HashMap<PacketId, UnackedMessage>,
     seen_acks: HashMap<SocketAddr, BTreeSet<PacketId>>,
 }
 
@@ -79,12 +85,40 @@ impl ReliableSocket {
     pub const MAX_RELIABLE_PACKET_SIZE: usize = 500;
 
     pub fn bind(port: u16) -> Result<ReliableSocket> {
-        let socket = UdpSocket::bind((Ipv4Addr::UNSPECIFIED, port))?;
+        let socket = Arc::new(UdpSocket::bind((Ipv4Addr::UNSPECIFIED, port))?);
         socket.set_nonblocking(true)?;
+        let drop_tracker = DropTracker::new();
+        let (incoming_message_sender, incoming_messages) = channel();
+
+        let drop_tracker_handle = drop_tracker.handle();
+        std::thread::spawn({
+            let socket = socket.clone();
+            move || {
+                while drop_tracker_handle.alive() {
+                    let mut buf = [0u8; ReliableSocket::MAX_RELIABLE_PACKET_SIZE + 32];
+                    match socket.recv_from(&mut buf) {
+                        Ok((byte_count, remote_address)) => {
+                            let incoming_message = IncomingMessage::new(buf[..byte_count].to_vec());
+                            if let Err(err) =
+                                incoming_message_sender.send((incoming_message, remote_address))
+                            {
+                                panic!("Send message error: {err}");
+                            }
+                        }
+                        Err(e) if e.kind() == ErrorKind::WouldBlock => {
+                            // Continue. This is expected
+                        }
+                        Err(e) => panic!("Recv message error: {e}"),
+                    }
+                }
+            }
+        });
 
         Ok(ReliableSocket {
             socket,
-            packet_id_counter: AtomicUsize::new(0),
+            _drop_tracker: drop_tracker,
+            incoming_messages,
+            packet_id_counter: 0,
             unacked_messages: HashMap::new(),
             seen_acks: HashMap::new(),
         })
@@ -93,7 +127,7 @@ impl ReliableSocket {
     fn resend_unacked_messages(&mut self) -> Result<Vec<(ReliableEvent, SocketAddr)>> {
         let mut results = Vec::new();
 
-        for (_, (unacked_message, _)) in self.unacked_messages.iter_mut() {
+        for (_, unacked_message) in self.unacked_messages.iter_mut() {
             if let Some(event) = unacked_message.send_if_needed(&self.socket)? {
                 results.push(event);
             }
@@ -117,11 +151,12 @@ impl ReliableSocket {
         destination: impl ToSocketAddrs,
     ) -> Result<PacketId, Error> {
         let destination = destination.to_socket_addrs()?.next().unwrap();
-        if message.data.len() > ReliableSocket::MAX_RELIABLE_PACKET_SIZE {
+        if message.data.len() > ReliableSocket::MAX_RELIABLE_PACKET_SIZE + 32 {
             return Err(Error::new(ErrorKind::InvalidData, "Packet too large."));
         }
 
-        let packet_id = PacketId(self.packet_id_counter.fetch_add(1, Ordering::Relaxed));
+        let packet_id = PacketId(self.packet_id_counter);
+        self.packet_id_counter += 1;
         let mut wrapped_message = OutgoingMessage::new();
         wrapped_message.write_bool(true);
         wrapped_message.write_usize(packet_id.0);
@@ -130,18 +165,14 @@ impl ReliableSocket {
 
         let mut unacked_message = UnackedMessage::new(packet_id, wrapped_message, destination);
         unacked_message.send_if_needed(&self.socket)?;
-        let _ = self
-            .unacked_messages
-            .insert(packet_id, (unacked_message, Instant::now()));
+        self.unacked_messages.insert(packet_id, unacked_message);
         Ok(packet_id)
     }
 
     pub fn pump(&mut self) -> Result<Vec<(ReliableEvent, SocketAddr)>> {
         let mut results = self.resend_unacked_messages()?;
 
-        let mut buf = [0u8; ReliableSocket::MAX_RELIABLE_PACKET_SIZE];
-        while let Ok((byte_count, remote_address)) = self.socket.recv_from(&mut buf) {
-            let mut incoming_message = IncomingMessage::new(buf[..byte_count].to_vec());
+        while let Ok((mut incoming_message, remote_address)) = self.incoming_messages.try_recv() {
             let is_data = incoming_message
                 .read_bool()
                 .ok_or(anyhow!("Reliable message is not data."))?;
@@ -185,11 +216,7 @@ impl ReliableSocket {
 
 #[cfg(test)]
 mod test {
-    use std::net::UdpSocket;
     use std::thread::sleep;
-    use std::time::Duration;
-
-    use anyhow::Result;
 
     use super::*;
 
@@ -220,7 +247,7 @@ mod test {
                 if id == ack_id && address == test_address
         ));
 
-        let mut buf = [0u8; ReliableSocket::MAX_RELIABLE_PACKET_SIZE];
+        let mut buf = [0u8; ReliableSocket::MAX_RELIABLE_PACKET_SIZE + 32];
         let (byte_count, _) = test.recv_from(&mut buf).unwrap();
         let mut incoming_message = IncomingMessage::new(buf[..byte_count].to_vec());
         assert_eq!(incoming_message.read_bool().unwrap(), true);
@@ -231,6 +258,7 @@ mod test {
         ack.write_bool(false);
         ack.write_usize(ack_id.0);
         test.send_to(&ack.data, reliable_address).unwrap();
+        sleep(Duration::from_millis(5));
 
         assert!(matches!(reliable.pump().unwrap().pop().unwrap(),
         (ReliableEvent::PacketAcknowledged(id), address)

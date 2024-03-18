@@ -84,7 +84,7 @@ impl PartialFrame {
 
 pub struct FrameSocket {
     reliable: ReliableSocket,
-    frame_id_counter: AtomicUsize,
+    frame_id_counter: usize,
     packets_to_send: VecDeque<(OutgoingMessage, SocketAddr)>,
     partial_frames: HashMap<(SocketAddr, FrameId), PartialFrame>,
 }
@@ -97,7 +97,7 @@ impl FrameSocket {
 
         Ok(FrameSocket {
             reliable,
-            frame_id_counter: AtomicUsize::new(0),
+            frame_id_counter: 0,
             packets_to_send: VecDeque::new(),
             partial_frames: HashMap::new(),
         })
@@ -111,7 +111,8 @@ impl FrameSocket {
         let destination = destination.to_socket_addrs()?.next().unwrap();
         let data_length = message.data.len();
         let mut readable_message = message.into_incoming();
-        let frame_id = self.frame_id_counter.fetch_add(1, Ordering::Relaxed);
+        let frame_id = self.frame_id_counter;
+        self.frame_id_counter += 1;
         let component_count =
             (data_length as f64 / FrameSocket::MAX_FRAME_PACKET_DATA_SIZE as f64).ceil() as usize;
         for i in 0..component_count {
@@ -188,5 +189,61 @@ impl FrameSocket {
 
     pub fn local_addr(&self) -> Result<SocketAddr> {
         Ok(self.reliable.local_addr()?)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use std::thread::sleep;
+    use std::time::Duration;
+
+    use anyhow::Result;
+
+    use super::*;
+
+    #[test]
+    fn frame_socket_reconstructs_large_packets() -> Result<()> {
+        let mut frame_socket = FrameSocket::bind(0)?;
+        let mut remote_frame_socket = FrameSocket::bind(0)?;
+        let remote_address = format!(
+            "127.0.0.1:{}",
+            remote_frame_socket.local_addr().unwrap().port()
+        );
+
+        let mut message = OutgoingMessage::new();
+        for _ in 0..5 {
+            message.write_string("This is a long message that ideally should be longer than the minimum message length for a reliable socket.");
+        }
+        assert!(message.len() > FrameSocket::MAX_FRAME_PACKET_DATA_SIZE);
+
+        frame_socket.send_to(message, remote_address)?;
+        let mut send_events = frame_socket.pump()?;
+        assert!(matches!(
+            send_events.pop(),
+            Some((FrameEvent::FrameComponentSent(_), _))
+        ));
+        assert!(matches!(
+            send_events.pop(),
+            Some((FrameEvent::FrameComponentSent(_), _))
+        ));
+        assert!(matches!(send_events.pop(), None));
+        sleep(Duration::from_millis(5));
+        let mut receive_events = dbg!(remote_frame_socket.pump()?);
+        assert!(matches!(
+            receive_events.remove(0),
+            (
+                FrameEvent::FrameComponentRecieved(ComponentPosition {
+                    parent_frame: _,
+                    remaining_components: 1,
+                }),
+                _
+            )
+        ));
+        assert!(matches!(
+            receive_events.remove(0),
+            (FrameEvent::FrameCompleted(_, _), _)
+        ));
+
+        Ok(())
     }
 }

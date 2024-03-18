@@ -92,6 +92,7 @@ impl LobbyStage {
                     panic!("UpdateReady message from unconnected sender");
                 };
                 self.peers_ready.insert(id, ready);
+                dbg!(id);
                 self.try_schedule_start(node, cx)?;
             }
             Message::ScheduleStart(run) => {

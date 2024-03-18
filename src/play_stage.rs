@@ -258,13 +258,12 @@ impl PlayStage {
             });
 
             for id in owner.peers() {
-                owner.send(
-                    id,
-                    Message::Input {
-                        sent_input: sent_input.clone(),
-                        last_received_frame: latest_frame_received.get(&id).copied().unwrap_or(0),
-                    },
-                );
+                let message = Message::Input {
+                    sent_input: sent_input.clone(),
+                    last_received_frame: latest_frame_received.get(&id).copied().unwrap_or(0),
+                };
+
+                owner.send(id, message);
             }
         }
 

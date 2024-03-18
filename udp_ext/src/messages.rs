@@ -115,6 +115,10 @@ impl OutgoingMessage {
         self.write_u8s(binary);
     }
 
+    pub fn len(&self) -> usize {
+        self.data.len()
+    }
+
     pub fn into_incoming(self) -> IncomingMessage {
         IncomingMessage::new(self.data)
     }
