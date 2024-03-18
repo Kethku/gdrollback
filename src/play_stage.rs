@@ -176,14 +176,17 @@ impl PlayStage {
                 .filter(|tick| tick < &oldest_tick)
                 .collect::<Vec<_>>()
             {
-                let frame = this.frames.remove(&old_tick).unwrap();
+                let frame = this
+                    .frames
+                    .remove(&old_tick)
+                    .expect("No frame exists for old_tick");
                 if let Some(missing_input_peer) = frame.missing_input(peers.clone()) {
                     // This frame is missing input from one of the peers.
                     // Log that we are stalling in order for the peer to catch up
                     // and add it back.
                     cx.logger()
                         .dropped_frame(cx.latest_tick() + 1, old_tick, missing_input_peer, cx)
-                        .unwrap();
+                        .expect("Could not log dropped frame");
                     this.frames.insert(old_tick, frame);
                     return None;
                 }
@@ -233,7 +236,7 @@ impl PlayStage {
                 cx.set_current_tick(frame_to_load);
                 cx.logger()
                     .rollback(latest_tick, frame_to_load, cx)
-                    .unwrap();
+                    .expect("Could not log rollback");
             });
             owner.load_frame(frame_to_load);
         }
@@ -252,7 +255,10 @@ impl PlayStage {
                 cx.logger()
                     .sent_input(sent_input.clone())
                     .expect("Couldn't log sent input");
-                let frame = this.frames.get_mut(&latest_tick).unwrap();
+                let frame = this
+                    .frames
+                    .get_mut(&latest_tick)
+                    .expect("Could not record input");
                 frame.set_input(cx.local_id(), new_input.clone(), cx.peers());
                 (sent_input, this.latest_frame_received.clone())
             });
@@ -269,7 +275,10 @@ impl PlayStage {
 
         for tick in oldest_updated.min(latest_tick)..=latest_tick {
             owner.update(|this, cx| {
-                let frame = this.frames.get(&tick).unwrap();
+                let frame = this
+                    .frames
+                    .get(&tick)
+                    .expect("Could not get frame for tick");
                 if let Some(previous_frame) = this.frames.get(&tick.saturating_sub(1)) {
                     frame.copy_spawn_data(&previous_frame);
                 }
@@ -285,7 +294,7 @@ impl PlayStage {
                         frame: tick,
                         hash: state_hash,
                     })
-                    .unwrap();
+                    .expect("Could not broadcast state_hash");
                 }
 
                 let frame = this.frames.get(&tick).unwrap();
@@ -293,7 +302,7 @@ impl PlayStage {
                 for spawned_node_path in frame.spawned_node_paths() {
                     cx.logger()
                         .spawned_node_alive(spawned_node_path, cx)
-                        .unwrap();
+                        .expect("Could not log spawned node alive");
                 }
             });
         }
