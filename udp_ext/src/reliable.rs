@@ -86,7 +86,7 @@ impl ReliableSocket {
 
     pub fn bind(port: u16) -> Result<ReliableSocket> {
         let socket = Arc::new(UdpSocket::bind((Ipv4Addr::UNSPECIFIED, port))?);
-        socket.set_nonblocking(true)?;
+        // socket.set_nonblocking(true)?;
         let drop_tracker = DropTracker::new();
         let (incoming_message_sender, incoming_messages) = channel();
 
