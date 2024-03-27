@@ -1,7 +1,6 @@
 use std::collections::*;
 use std::io::Error;
 use std::net::{SocketAddr, ToSocketAddrs};
-use std::sync::atomic::{AtomicUsize, Ordering};
 
 use anyhow::{anyhow, Result};
 
